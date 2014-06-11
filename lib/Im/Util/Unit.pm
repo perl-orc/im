@@ -1,21 +1,20 @@
 package Im::Util::Unit;
 
-use Exporter
+use Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw();
+our @EXPORT_OK = qw(
+  create_meta
+  declare_unit finalise_unit
+  reify
+  clone
+  mutate
+);
 
 use Data::Lock qw(dlock);
-use Im::Util::Meta qw( get_meta has_meta set_meta add_attribute add_requires add_unit install_attr );
-use Pred qw(coderef identifier identifier_atom);
+use Im::Util::Meta qw( get_meta has_meta set_meta create_meta add_attribute add_requires add_unit install_attr );
 use Package::Anonish::PP;
 use Safe::Isa;
 use Set::Scalar;
-
-sub create_meta {
-  my (%attrs) = @_;
-  my %defaults = (type => 'unit', units => [$defaults{package}||()]);
-  return bless { %defaults, %attrs }, 'Im::Meta';
-}
 
 sub _pa_for {
   return Package::Anonish::PP->new(@_);
@@ -43,7 +42,7 @@ sub _methodref_to_string {
   $val_len = 3 if $val_len < 3;
   my $border = sprintf('+-%s-+-%s-+', '-' x $key_length, '-' x $val_length);
   my @ret = ($border);
-  push @ret, sprintf("| key | val |")
+  push @ret, sprintf("| key | val |");
   foreach my $k (sort keys %$methodref) {
     foreach my $v (sort {$a cmp $b} @{$methodref->{$k}}) {
       push @ret, sprintf("| %${key_len}s | %${val_len}s |", $k, $v);
@@ -54,7 +53,8 @@ sub _methodref_to_string {
 }
 
 sub _methods_to_merge {
-  my @requires = map @{$_->{'requires'}||[]}, @_;
+	my @inputs = @_;
+  my @requires = (map @{$_->{'requires'}||[]}, @inputs);
   my %methods;
   my %clashing;
   foreach my $u (@$units) {
@@ -79,7 +79,7 @@ sub _ensure_covered {
       push @failing, $r;
     }
   }
-  croak("The following required methods are not provided: " . join(", ", @failing));
+  croak("The following required methods are not provided: " . join(", ", @failing))
     if @failing;
 }
 
@@ -101,7 +101,7 @@ sub reify {
   croak("Cannot reify zero units")
     unless @units;
   my %to_merge = _methods_to_merge(@units);
-  my @requires = map @{$_->{'requires'}} @units;
+  my @requires = map @{$_->{'requires'}}, @units;
   _ensure_covered($methods,[@requires],{%{$args{defs}||{}}});
   my $pa = _pa_for ( (@units == 1) ? $u : ());
   if (@units > 1) {
@@ -126,7 +126,7 @@ sub clone {
 sub mutate {
   my ($ref, $code) = @_;
   # Eventually, this will deal with locking and unlocking
-  given($ref) {
+  for ($ref) {
     $code->($ref);
     return $_;
   }

@@ -3,10 +3,9 @@ package Im::Util::Meta;
 use Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(
-  get_meta has_meta set_meta
-  add_attribute add_requires
-  add_unit
-  install_attr
+  get_meta has_meta set_meta create_meta
+  add_attribute add_requires add_unit
+  install_attr install_attrs install_sub
 );
 
 use Im::Util qw(mutate);
@@ -32,6 +31,12 @@ sub set_meta {
     _pa_for($package)->add_method('meta', sub { $meta })
       unless has_meta($package);
   }
+}
+
+sub create_meta {
+  my (%attrs) = @_;
+  my %defaults = (type => 'unit', units => [$defaults{package}||()]);
+  return bless { %defaults, %attrs }, 'Im::Meta';
 }
 
 sub install_sub {

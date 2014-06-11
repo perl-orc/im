@@ -4,12 +4,12 @@ use Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT = qw(has _finalise_class);
 
-use Im::Util qw();
+use Im::Util qw(declare_unit has_meta install_attr finalise_unit);
 
 sub has {
   my ($name, %conf) = @_;
   my $self = [caller]->[0];
-  declare_unit($self);
+  declare_unit($self)
     unless has_meta($self);
   my $meta = get_meta($self);
   install_attr($meta, $name, %conf);
