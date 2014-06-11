@@ -2,11 +2,37 @@ package Im::Util::Meta;
 
 use Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(install_attr);
+our @EXPORT_OK = qw(
+  get_meta has_meta set_meta
+  add_attribute add_requires
+  add_unit
+  install_attr
+);
 
 use Im::Util qw(mutate);
 use Package::Anonish::PP;
 use Sub::Defer;
+
+sub get_meta {
+  my $thing = @_;
+  return $thing->$_can('meta') ? $thing->meta : undef;
+}
+
+sub has_meta {
+  my ($thing) = @_;
+  return defined get_meta($thing);
+}
+
+sub set_meta {
+  my ($package, $meta) = @_;
+  if ($meta) {
+    _pa_for($package)->add_method('meta', sub { $meta })
+  } else {
+    $meta = create_meta(package => $package);
+    _pa_for($package)->add_method('meta', sub { $meta })
+      unless has_meta($package);
+  }
+}
 
 sub install_sub {
   my ($meta, $name, $code) = @_;
@@ -73,6 +99,20 @@ sub add_requires {
     $_->{'requires'} = [@requires];
   });
   set_meta($meta->{'package'},$new);
+}
+
+sub add_unit {
+  my ($meta, @units) = @_;
+  my $new = clone($meta);
+  my @munits = @{$meta->{'units'} || []};
+  foreach my $u (@units) {
+    push @munits, $u
+      unless (grep $_ eq $u, @munits);
+  }
+  $new = mutate($new, sub {
+    $_->{'units'} = [@munits];
+  });
+  set_meta($meta->{'package'}, $new);
 }
 
 1

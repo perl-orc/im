@@ -5,6 +5,7 @@ our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
 
 use Data::Lock qw(dlock);
+use Im::Util::Meta qw( get_meta has_meta set_meta add_attribute add_requires add_unit install_attr );
 use Pred qw(coderef identifier identifier_atom);
 use Package::Anonish::PP;
 use Safe::Isa;
@@ -12,34 +13,12 @@ use Set::Scalar;
 
 sub create_meta {
   my (%attrs) = @_;
-  my %defaults = (type => 'unit');
+  my %defaults = (type => 'unit', units => [$defaults{package}||()]);
   return bless { %defaults, %attrs }, 'Im::Meta';
 }
 
-sub get_meta {
-  my $thing = @_;
-  return $thing->$_can('meta') ? $thing->meta : undef;
-}
-
-sub has_meta {
-  my ($thing) = @_;
-  return defined get_meta($thing);
-}
-
-sub set_meta {
-  my ($package, $meta) = @_;
-  if ($meta) {
-    _pa_for($package)->add_method('meta', sub { $meta })
-  } else {
-    $meta = create_meta(package => $package);
-    _pa_for($package)->add_method('meta', sub { $meta })
-      unless has_meta($package);
-  }
-}
-
 sub _pa_for {
-  my ($package) = @_;
-  return Package::Anonish::PP->new($package);
+  return Package::Anonish::PP->new(@_);
 }
 
 sub declare_unit {
@@ -55,59 +34,88 @@ sub _diff_ars {
   return $l->symmetric_difference($r);
 }
 
+sub _methodref_to_string {
+  my (@methodref,$indent) = @_;
+  $indent //= 4;
+  my $key_len = pop (sort {$a <=> $b} map length($_), keys $methodref);
+  my $val_len = pop (sort {$a <=> $b} map length($_), values $methodref);
+  $key_len = 3 if $key_len < 3;
+  $val_len = 3 if $val_len < 3;
+  my $border = sprintf('+-%s-+-%s-+', '-' x $key_length, '-' x $val_length);
+  my @ret = ($border);
+  push @ret, sprintf("| key | val |")
+  foreach my $k (sort keys %$methodref) {
+    foreach my $v (sort {$a cmp $b} @{$methodref->{$k}}) {
+      push @ret, sprintf("| %${key_len}s | %${val_len}s |", $k, $v);
+    }
+  }
+  push @ret, $border;
+  return join "\n", map (' ' x $indent) . $_, @ret;
+}
+
 sub _methods_to_merge {
   my @requires = map @{$_->{'requires'}||[]}, @_;
   my %methods;
-  my $error_flag = 0;
+  my %clashing;
   foreach my $u (@$units) {
     my $pa = _pa_for($u);
     foreach my $m ($pa->methods) {
-      if (defined($methods{$m})) {
-        carp("Method '$m' exists in $methods{$m} and $u");
-        $error_flag = 1;
-      }
+      $clashing{$m} = (@{$clashing{$m}||[]}, $u)
+        if defined $methods{$m};
       $methods{$m} = $u;
     }
   }
-  return undef if $error_flag;
-  return {%methods};
+  croak("Some units were unable to be merged. Here are the methods defined in multiple packages:\n" . _methodref_to_string({%clashing}))
+    if (%clashing);
+  return %methods;
 }
 
 sub _ensure_covered {
-  my ($units, $missing, @args) = @_;
-  my @requires = map @{$_->{'requires'}||[]}, @$units;
-  # We will need to loop twice:
-  # Once to ensure all the requires are met
-  # Once to ensure that each function is defined precisely once
-  my %methods;
-  my $error_flag = 0;
+  # All the required methods must be covered
+  my ($methods, $required, $defs) = @_;
+  my @failing;
+  foreach my $r (@required) {
+    unless (defined($methods->{$r}) || defined($defs->{$r})) {
+      push @failing, $r;
+    }
+  }
+  croak("The following required methods are not provided: " . join(", ", @failing));
+    if @failing;
 }
 
+sub _sanitise_reify_args {
+  my %args = @_;
+  delete $args{defs};
+  delete $args{units};
+  %args;
+}
+
+# So much to do to this
+# We could start with:
+# - support some sort of logic for preferences. like optional reify in order, or here's an ordering, or these packages are deciders in the order provided, or these packagers are deciders but a clash is an error.
+# Or maybe we just need some helpers to construct the list of defs?
+
 sub reify {
-  my ($units, $missing, @args) = @_;
-  my @units = @$units;
+  my %args = @_;
+  my @units = @{$args{units}||[]};
   croak("Cannot reify zero units")
     unless @units;
-  if (@units) == 1) {
-    my @requires = @{$units[0]->{'requires'}||[]};
-    unless (@requires) {
-      # Huzzah. This way is easy
-      bless($self, $units[0]);
-    } else {
-      my $d = _diff_ars([sort keys %$missing],[sort keys %{+{map {$_ => ()} @requires}}]);
-      croak("reify: The following keys do not match up: $d")
-        if ($d->size);
-      # Right, get us a package, do the setup and put us the fuck in it
-      my $pa = Package::Anonish::PP->new;
+  my %to_merge = _methods_to_merge(@units);
+  my @requires = map @{$_->{'requires'}} @units;
+  _ensure_covered($methods,[@requires],{%{$args{defs}||{}}});
+  my $pa = _pa_for ( (@units == 1) ? $u : ());
+  if (@units > 1) {
+    my $new = create_meta(
+      package => $pa->{'package'},
+      requires => [@requires],
+      units => [@units],
+    );
+    set_meta($pa->{'package'}, $new);
+    foreach my $k (keys %to_merge) {
+      $pa->add_method($k, $to_merge{$k}->can($k));
     }
-  } else {
-    my @requires = map @{$_->{'requires'}||[]}, @units;
-    my $d = _diff_ars([sort keys %$missing],[sort keys %{+{map {$_ => ()} @requires}}]);
-      croak("reify: The following keys do not match up: $d")
-        if ($d->size);
-      # Right, get us a package, do the setup and put us the fuck in it
   }
-  my %missing = %$missing;
+  return $pa->bless({_sanitise_reify_args(%defs)});
 }
 
 sub clone {
