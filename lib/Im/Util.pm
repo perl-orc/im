@@ -1,5 +1,8 @@
 package Im::Util;
 
+use strict;
+use warnings;
+
 use Carp qw(carp croak);
 use Data::Lock qw(dlock);
 use Im::Util::Clone;

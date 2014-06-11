@@ -1,5 +1,8 @@
 package Im::Util::Clone;
 
+use strict;
+use warnings;
+
 use Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT = qw(clone_a);

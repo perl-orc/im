@@ -1,5 +1,8 @@
 package Im;
 
+use strict;
+use warnings;
+
 use Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT = qw(has _finalise_class);

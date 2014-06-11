@@ -1,5 +1,8 @@
 package Im::Util::Meta;
 
+use strict;
+use warnings;
+
 use Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(
@@ -10,7 +13,7 @@ our @EXPORT_OK = qw(
 
 use Im::Util qw(mutate);
 use Package::Anonish::PP;
-use Sub::Defer;
+use Safe::Isa;
 
 sub get_meta {
   my $thing = @_;
@@ -35,7 +38,8 @@ sub set_meta {
 
 sub create_meta {
   my (%attrs) = @_;
-  my %defaults = (type => 'unit', units => [$defaults{package}||()]);
+  my %defaults = (type => 'unit');
+	$defaults{units} = [$defaults{package}||()];
   return bless { %defaults, %attrs }, 'Im::Meta';
 }
 
@@ -84,7 +88,7 @@ sub install_attrs {
 }
 
 sub add_attribute {
-  my ($meta, $name, %spec) = 
+  my ($meta, $name, %spec) = @_;
   my $new = clone($meta);
   my %attrs = %{$meta->{'attrs'} || {}};
   $attrs{$name} = {%spec};
@@ -95,7 +99,7 @@ sub add_attribute {
 }
 
 sub add_requires {
-  my ($meta, $name, %spec) = 
+  my ($meta, $name, %spec) = @_;
   my $new = clone($meta);
   my @requires = @{$meta->{'requires'} || []};
   push @requires, $name

@@ -1,5 +1,8 @@
 package Im::Util::Unit;
 
+use strict;
+use warnings;
+
 use Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(
@@ -34,13 +37,13 @@ sub _diff_ars {
 }
 
 sub _methodref_to_string {
-  my (@methodref,$indent) = @_;
+  my ($methodref,$indent) = @_;
   $indent //= 4;
-  my $key_len = pop (sort {$a <=> $b} map length($_), keys $methodref);
-  my $val_len = pop (sort {$a <=> $b} map length($_), values $methodref);
+  my $key_len = pop (@{[sort {$a <=> $b} map length($_), keys $methodref]});
+  my $val_len = pop (@{[sort {$a <=> $b} map length($_), values $methodref]});
   $key_len = 3 if $key_len < 3;
   $val_len = 3 if $val_len < 3;
-  my $border = sprintf('+-%s-+-%s-+', '-' x $key_length, '-' x $val_length);
+  my $border = sprintf('+-%s-+-%s-+', '-' x $key_len, '-' x $val_len);
   my @ret = ($border);
   push @ret, sprintf("| key | val |");
   foreach my $k (sort keys %$methodref) {
@@ -53,14 +56,14 @@ sub _methodref_to_string {
 }
 
 sub _methods_to_merge {
-	my @inputs = @_;
-  my @requires = (map @{$_->{'requires'}||[]}, @inputs);
+	my @units = @_;
+  my @requires = (map @{$_->{'requires'}||[]}, @units);
   my %methods;
   my %clashing;
-  foreach my $u (@$units) {
+  foreach my $u (@units) {
     my $pa = _pa_for($u);
     foreach my $m ($pa->methods) {
-      $clashing{$m} = (@{$clashing{$m}||[]}, $u)
+      $clashing{$m} = [(@{$clashing{$m}||[]}, $u)]
         if defined $methods{$m};
       $methods{$m} = $u;
     }
@@ -74,7 +77,7 @@ sub _ensure_covered {
   # All the required methods must be covered
   my ($methods, $required, $defs) = @_;
   my @failing;
-  foreach my $r (@required) {
+  foreach my $r (@$required) {
     unless (defined($methods->{$r}) || defined($defs->{$r})) {
       push @failing, $r;
     }
@@ -102,8 +105,8 @@ sub reify {
     unless @units;
   my %to_merge = _methods_to_merge(@units);
   my @requires = map @{$_->{'requires'}}, @units;
-  _ensure_covered($methods,[@requires],{%{$args{defs}||{}}});
-  my $pa = _pa_for ( (@units == 1) ? $u : ());
+  _ensure_covered({%to_merge},[@requires],{%{$args{defs}||{}}});
+  my $pa = _pa_for ( (@units == 1) ? $units[0] : ());
   if (@units > 1) {
     my $new = create_meta(
       package => $pa->{'package'},
@@ -115,7 +118,7 @@ sub reify {
       $pa->add_method($k, $to_merge{$k}->can($k));
     }
   }
-  return $pa->bless({_sanitise_reify_args(%defs)});
+  return $pa->bless({_sanitise_reify_args($args{defs})});
 }
 
 sub clone {
