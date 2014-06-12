@@ -14,7 +14,7 @@ our @EXPORT_OK = qw(
 );
 
 use Data::Lock qw(dlock);
-use Im::Util::Meta qw( get_meta has_meta set_meta create_meta add_attribute add_requires add_with install_attr );
+use Im::Util::Meta qw( get_meta has_meta set_meta create_meta add_attribute add_requires add_with install_attr install_new install_does);
 use Package::Anonish::PP;
 use Safe::Isa;
 use Set::Scalar;
@@ -122,17 +122,16 @@ sub reify {
   my %to_merge = _methods_to_merge(@expanded);
   my @requires = map @{$_->{'requires'}}, @expanded;
   _ensure_covered({%to_merge},[@requires],{%{$args{defs}||{}}});
-  my $pa = _pa_for ( (@units == 1) ? $units[0] : ());
-  if (@units > 1) {
-    my $new = create_meta(
-      package => $pa->{'package'},
-      requires => [@requires],
-      units => [@expanded],
-    );
-    set_meta($pa->{'package'}, $new);
-    foreach my $k (keys %to_merge) {
-      $pa->add_method($k, $to_merge{$k}->can($k));
-    }
+  my $pa = _pa_for;
+	my $new = create_meta(
+    package => $pa->{'package'},
+    requires => [@requires],
+    units => [@expanded],
+  );
+  set_meta($pa->{'package'}, $new);
+	# Potential optimisation: can we just precompile the class if it's a plain invocation with no extra roles? Watch out for compilation at reify time
+  foreach my $k (keys %to_merge) {
+    $pa->add_method($k, $to_merge{$k}->can($k));
   }
   return $pa->bless({_sanitise_reify_args($args{defs})});
 }
@@ -155,6 +154,7 @@ sub finalise_unit {
   my ($meta) = @_;
   install_attrs($meta);
   install_new($meta);
+  install_does($meta);
 }
 
 1

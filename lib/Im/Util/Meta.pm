@@ -9,6 +9,7 @@ our @EXPORT_OK = qw(
   get_meta has_meta set_meta create_meta
   add_attribute add_requires add_with
   install_attr install_attrs install_sub
+  install_new install_does
 );
 
 use Im::Util qw(mutate);
@@ -148,6 +149,19 @@ sub install_new {
 		return reify(units => [ $meta->{'package'} ], %args);
 	};
 	install_sub($meta->{'package'},'new', $new);
+}
+
+sub install_does {
+	my $meta = shift;
+	my $does = sub {
+    my ($self, @does) = @_;
+    foreach my $d (@does) {
+			return undef
+				unless grep $_ eq $d, get_meta($self)->{'with'};
+		}
+		1
+	};
+	install_sub($meta->{'package'},'does', $does);
 }
 1
 __END__
