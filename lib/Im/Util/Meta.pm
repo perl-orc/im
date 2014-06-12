@@ -55,24 +55,25 @@ sub install_attr {
     unless exists $conf{init_arg};
   if ($conf{init_arg}) {
     if ($conf{builder}) {
-      if (exists $conf{lazy} && $conf{lazy}) {
-        install_sub($meta, $name, sub {
-          my $self = shift;
-          install_sub($meta, $name, sub { shift->{$name} });
-          mutate($self, sub {
-            $_->{$name} = $conf{builder}->($self);
-          });
-          $self->{$name};
+			install_sub($meta, "_build_$name", $conf{builder});
+			install_sub($meta, $name, sub {
+        my $self = shift;
+        install_sub($meta, $name, sub { shift->{$name} });
+        mutate($self, sub {
+          $_->{$name} = $self->can("_build_$name")->($self);
         });
-      } else {
-        install_sub($meta, $name, sub { $conf{builder}->($meta->{'package'}) });
-      }
+        $self->{$name};
+      });
     } else {
       croak("lazy attributes must have a supplied 'builder' (CODE ref)")
         if ($conf{lazy});
       install_sub ($meta, $name, sub { shift->{$name} });
     }
   }
+  if ($conf{required}) {
+		$conf{predicate} = 1
+			unless exists $conf{predicate};
+	}
   if ($conf{predicate}) {
     $conf{predicate} = $name
       if $conf{predicate} eq '1';
@@ -126,5 +127,27 @@ sub add_with {
   set_meta($meta->{'package'}, $new);
 }
 
+sub install_new {
+  my ($meta) = @_;
+	my %attrs = %{$meta->{'attrs'}};
+	my @required;
+	foreach my $k (keys %attrs) {
+		if ($attrs{$k}->{'required'}) {
+			push @required, $k;
+		}
+	}
+	my $new = sub {
+    my (%args) = @_;
+		my @missing;
+    foreach my $r (@required) {
+			push @missing, $r
+				unless defined $args{$r};
+		}
+		croak("The following required attributes are missing: " . join(", ", @missing))
+			if @missing;
+		return reify(units => [ $meta->{'package'} ], %args);
+	};
+	install_sub($meta->{'package'},'new', $new);
+}
 1
 __END__

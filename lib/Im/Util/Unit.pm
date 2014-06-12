@@ -154,6 +154,7 @@ sub mutate {
 sub finalise_unit {
   my ($meta) = @_;
   install_attrs($meta);
+  install_new($meta);
 }
 
 1
