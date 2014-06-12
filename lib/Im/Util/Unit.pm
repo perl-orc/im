@@ -11,6 +11,7 @@ our @EXPORT_OK = qw(
   reify
   clone
   mutate
+  _pa_for
 );
 
 use Data::Lock qw(dlock);

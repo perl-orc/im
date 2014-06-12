@@ -12,13 +12,14 @@ our @EXPORT_OK = qw(
   install_new install_does
 );
 
-use Im::Util qw(mutate);
+use Im::Util::Unit qw(mutate _pa_for);
 use Package::Anonish::PP;
 use Safe::Isa;
+use Scalar::Util qw(blessed);
 
 sub get_meta {
-  my $thing = @_;
-  return $thing->$_can('meta') ? $thing->meta : undef;
+  my $thing = shift;
+	return ($thing->can('meta') ? $thing->meta : undef)
 }
 
 sub has_meta {
@@ -40,7 +41,7 @@ sub set_meta {
 sub create_meta {
   my (%attrs) = @_;
   my %defaults = (type => 'unit');
-	$defaults{units} = [$defaults{package}||()];
+	$defaults{units} = [$attrs{package}||()];
   return bless { %defaults, %attrs }, 'Im::Meta';
 }
 
