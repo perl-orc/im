@@ -4,41 +4,35 @@ use Im::Util::Unit qw(
   declare_unit finalise_unit
   reify
   clone
-  mutate
-  _pa_for _diff_ars _methodref_to_string _methods_to_merge
+  _diff_ars _methodref_to_string _methods_to_merge
   _ensure_covered _sanitise_reify_args _expand_units
 );
-
+use Im::Util::Meta qw(add_requires);
 # Packages are cheap, they burn well
 {
   package T1;
   sub meta {
-    return bless {units => ['T2']}, 'T1';
+    return bless {units => [qw(T1 T2)], package => 'T1'}, 'Im::Meta';
   }
   sub foo {}
   package T2;
   sub meta {
-    return bless {units => [qw(T1 T3 T4)]}, 'T2';
+    return bless {units => [qw(T1 T3 T4)], package => 'T2'}, 'Im::Meta';
   }
   sub bar {}
   package T3;
   sub meta {
-    return bless {units => [qw(T1 T2 T4)]}, 'T3';
+    return bless {units => [qw(T1 T2 T4)], package => 'T3'}, 'Im::Meta';
   }
   sub foo {}
   sub bar {}
   package T4;
   sub meta {
-    return bless {units => ['T2']}, 'T4';
+    return bless {units => [qw(T4 T2)], package => 'T4'}, 'Im::Meta';
   }
   package T5;
   package T6;
 }
-
-subtest _pa_for => sub {
-  eq_or_diff({%{_pa_for('foo')}}, {package => 'foo'});
-  isa_ok(_pa_for, 'Package::Anonish::PP');
-};
 
 subtest _diff_ars => sub {
 	my @l = qw(a b c);
@@ -62,20 +56,20 @@ subtest _methodref_to_string => sub {
 
 subtest _methods_to_merge => sub {
   my @exp = map quotemeta, (
-    qq(Some units were unable to be merged. Here are the methods defined in multiple packages:\n+-----+-----+\n| key | val |\n+-----+-----+\n| foo | T3  |\n+-----+-----+),
-    qq(Some units were unable to be merged. Here are the methods defined in multiple packages:\n+-----+-----+\n| key | val |\n+-----+-----+\n| bar | T3  |\n+-----+-----+),
-    qq(Some units were unable to be merged. Here are the methods defined in multiple packages:\n+-----+-----+\n| key | val |\n+-----+-----+\n| bar | T3  |\n| foo | T3  |\n+-----+-----+),
+    qq(Some units were unable to be merged. Here are the methods defined in multiple packages:\n+-----+-----+\n| key | val |\n+-----+-----+\n| foo | T1  |\n| foo | T3  |\n+-----+-----+),
+    qq(Some units were unable to be merged. Here are the methods defined in multiple packages:\n+-----+-----+\n| key | val |\n+-----+-----+\n| bar | T2  |\n| bar | T3  |\n+-----+-----+),
+    qq(Some units were unable to be merged. Here are the methods defined in multiple packages:\n+-----+-----+\n| key | val |\n+-----+-----+\n| bar | T2  |\n| bar | T3  |\n| foo | T1  |\n| foo | T3  |\n+-----+-----+),
   );
 	throws_ok {
-    _methods_to_merge('T1','T3');
+    _methods_to_merge(['T1','T3']);
   } qr/$exp[0]/;
 	throws_ok {
-    _methods_to_merge('T2','T3');
+    _methods_to_merge(['T2','T3']);
   } qr/$exp[1]/;
 	throws_ok {
-    _methods_to_merge('T1','T2','T3');
+    _methods_to_merge(['T1','T2','T3']);
   } qr/$exp[2]/;
-  eq_or_diff({_methods_to_merge('T1','T2')},{foo => 'T1', bar => 'T2'});
+  eq_or_diff({_methods_to_merge(['T1','T2'])},{foo => 'T1', bar => 'T2'});
 };
 
 subtest _ensure_covered => sub {
@@ -138,8 +132,23 @@ subtest finalise_unit => sub {
 	}
 };
 
+use Data::Dumper 'Dumper';
+
 subtest reify => sub {
-  ok(1);
+	throws_ok {
+    reify;
+  } qr/Cannot reify zero units/;
+	# warn Dumper(T1->meta);
+	add_requires('T1','bar');
+	# warn Dumper(T1->meta);
+  finalise_unit('T1');
+	eq_or_diff(T1->meta->{'requires'},['bar']);
+	add_requires('T2','foo');
+  finalise_unit('T2');
+	eq_or_diff(T2->meta->{'requires'},['foo']);
+  my $ret = reify(units => [qw(T1 T2)], defs => {foo => sub{}, bar => sub{}});
+	eq_or_diff($ret->meta->{'units'},[qw(T1 T2 T3 T4)]);
+	eq_or_diff($ret->meta->{'requires'},[qw(bar foo)]);
 };
 
 subtest clone => sub {
@@ -148,15 +157,6 @@ subtest clone => sub {
   throws_ok {
     clone("foo");
   } qr/foo/;
-};
-
-subtest mutate => sub {
-	my $hr = {foo => 'bar'};
-	my $ret = mutate($hr, sub {$_->{'bar'} = 'baz'});
-  eq_or_diff($hr->{'bar'}, 'baz');
-  eq_or_diff($ret->{'bar'}, 'baz');
-  eq_or_diff($hr->{'foo'}, 'bar');
-  eq_or_diff($ret->{'foo'}, 'bar');
 };
 
 done_testing;

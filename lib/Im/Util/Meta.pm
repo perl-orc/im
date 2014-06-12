@@ -8,16 +8,18 @@ our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(
   get_meta has_meta set_meta create_meta
   add_attribute add_requires add_with
-  install_attr install_attrs install_sub
-  install_new install_does _attr_config
+  install_attr install_attrs install_sub mutate
+  install_new install_does _attr_config _pa_for
 );
 
 use Carp qw(carp croak);
-use Im::Util::Unit qw(mutate _pa_for);
-use Im::Util::Clone;
 use Package::Anonish::PP;
 use Safe::Isa;
 use Scalar::Util qw(blessed);
+
+sub _pa_for {
+  return Package::Anonish::PP->new(@_);
+}
 
 sub get_meta {
   my $thing = shift;
@@ -107,44 +109,47 @@ sub add_attribute {
   my ($meta, $name, %spec) = @_;
   use Data::Dumper 'Dumper';
   $meta = get_meta($meta);
-  warn Dumper $meta;
-  my $new = clone_a($meta);
+#  warn Dumper $meta;
   my %attrs = %{$meta->{'attrs'} || {}};
   $attrs{$name} = {%spec};
-  $new = mutate($new, sub {
+  mutate($meta, sub {
     $_->{'attrs'} = {%attrs};
   });
-  set_meta($meta->{'package'},$new);
 }
+
+sub _uniq {
+  my %t;
+	@t{@_} = ();
+	return keys %t;
+}
+
+use Data::Dumper 'Dumper';
 
 sub add_requires {
   my ($meta, @names) = @_;
   $meta = get_meta($meta);
-  my $new = clone_a($meta);
-  my @requires = @{$meta->{'requires'} || []};
-  foreach my $n (@names) {
-    push @requires, $n
-      unless grep $_ eq $n, @requires;
-  }
-  $new = mutate($new, sub {
+	warn "meta: " . Dumper($meta);
+  my @requires = _uniq(@{$meta->{'requires'} || []}, @names);
+	warn "requires: " . Dumper(\@requires);
+  $meta = mutate($meta, sub {
     $_->{'requires'} = [@requires];
   });
-  set_meta($meta->{'package'},$new);
+	warn "meta2: " . Dumper($meta);
+	warn "meta3: " . Dumper($meta->{'package'}->meta);
+	set_meta($meta->{'package'},$meta);
 }
 
 sub add_with {
   my ($meta, @units) = @_;
   $meta = get_meta($meta);
-  my $new = clone_a($meta);
   my @with = @{ $meta->{'units'} || [] };
   foreach my $u (@units) {
     push @with, $u
       unless grep /^$u$/, @with;
   }
-  $new = mutate($new, sub {
+  mutate($meta, sub {
     $_->{'units'} = [@with];
   });
-  set_meta($meta->{'package'}, $new);
 }
 
 sub install_new {
@@ -186,5 +191,16 @@ sub install_does {
   };
   install_sub($meta->{'package'},'does', $does);
 }
+
+sub mutate {
+  my ($ref, $code) = @_;
+  # Eventually, this will deal with locking and unlocking
+  for ($ref) {
+    $code->($ref);
+  }
+	$ref;
+}
+
+
 1
 __END__

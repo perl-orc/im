@@ -3,8 +3,8 @@ use Test::Most;
 use Im::Util::Meta qw(
   get_meta has_meta set_meta create_meta
   add_attribute add_requires add_with
-  install_attr install_attrs install_sub
-  install_new install_does _attr_config
+  install_attr install_attrs install_sub mutate
+  install_new install_does _attr_config _pa_for
 );
 
 # We'll need these for testing. We burn through a few
@@ -15,6 +15,20 @@ use Im::Util::Meta qw(
   package T3;
   package T4;
 }
+
+subtest mutate => sub {
+	my $hr = {foo => 'bar'};
+	my $ret = mutate($hr, sub {$_->{'bar'} = 'baz'});
+  eq_or_diff($hr->{'bar'}, 'baz');
+  eq_or_diff($ret->{'bar'}, 'baz');
+  eq_or_diff($hr->{'foo'}, 'bar');
+  eq_or_diff($ret->{'foo'}, 'bar');
+};
+
+subtest _pa_for => sub {
+  eq_or_diff({%{_pa_for('foo')}}, {package => 'foo'});
+  isa_ok(_pa_for, 'Package::Anonish::PP');
+};
 
 subtest crud_meta => sub {
   eq_or_diff([get_meta('T1')],[undef]);

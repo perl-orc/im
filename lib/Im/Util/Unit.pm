@@ -9,22 +9,17 @@ our @EXPORT_OK = qw(
   declare_unit finalise_unit
   reify
   clone
-  mutate
-  _pa_for _diff_ars _methodref_to_string _methods_to_merge
+  _diff_ars _methodref_to_string _methods_to_merge
 	_ensure_covered _sanitise_reify_args _expand_units
 );
 
 use Carp qw(carp croak);
 use Data::Lock qw(dlock);
 use Im::Util::Clone;
-use Im::Util::Meta qw( get_meta has_meta set_meta create_meta add_attribute add_requires add_with install_attr install_new install_does );
+use Im::Util::Meta qw( get_meta has_meta set_meta create_meta add_attribute add_requires add_with install_attr install_new install_does _pa_for mutate);
 use Package::Anonish::PP;
 use Safe::Isa;
 use Set::Scalar;
-
-sub _pa_for {
-  return Package::Anonish::PP->new(@_);
-}
 
 sub declare_unit {
   my ($package) = @_;
@@ -60,8 +55,9 @@ sub _methodref_to_string {
 }
 
 sub _methods_to_merge {
-	my @units = @_;
-  my @requires = (map @{get_meta($_)->{'requires'}||[]}, @units);
+	my ($units, $defs) = @_;
+	my @units = _uniq(@$units);
+  my @requires = _uniq(map @{get_meta($_)->{'requires'}||[]}, @units);
 	# Keep two records:
 	# - methods and package they were first found in. name => "packagename"
   my %methods;
@@ -70,14 +66,23 @@ sub _methods_to_merge {
   foreach my $u (@units) {
     my $pa = _pa_for($u);
     foreach my $m ($pa->methods) {
-			next if $m eq 'meta';
-      $clashing{$m} = [(@{$clashing{$m}||[]}, $u)]
-        if defined $methods{$m};
+			next if $m eq 'meta' || $m eq 'new' || $m eq 'does';
+			$clashing{$m} = ($clashing{$m} ? [(@{$clashing{$m}||[]}, $u)] : [$methods{$m}, $u])
+				if defined $methods{$m};
       $methods{$m} = $u;
     }
   }
-  croak("Some units were unable to be merged. Here are the methods defined in multiple packages:\n" . _methodref_to_string({%clashing}))
-    if (%clashing);
+	foreach my $c (keys %clashing) {
+#		use Data::Dumper 'Dumper';
+#		warn(Dumper $defs);
+		if (defined $defs->{$c}) {
+			$methods{$c} = $defs->{$c};
+			delete $clashing{$c};
+		}
+	}
+	if (%clashing) {
+		croak("Some units were unable to be merged. Here are the methods defined in multiple packages:\n" . _methodref_to_string({%clashing}));
+	}
   return %methods;
 }
 
@@ -118,14 +123,18 @@ sub _expand_units {
 # - support some sort of logic for preferences. like optional reify in order, or here's an ordering, or these packages are deciders in the order provided, or these packagers are deciders but a clash is an error.
 # Or maybe we just need some helpers to construct the list of defs?
 
+sub _uniq {
+  my %t; @t{@_} = (); return sort keys %t;
+}
+
 sub reify {
   my %args = @_;
-  my @units = @{$args{units}||[]};
+  my @units = _uniq(@{$args{units}||[]});
   croak("Cannot reify zero units")
     unless @units;
 	my @expanded = _expand_units(@units);
-  my %to_merge = _methods_to_merge(@expanded);
-  my @requires = map @{$_->{'requires'}}, @expanded;
+  my %to_merge = _methods_to_merge([@expanded],$args{defs}||{});
+  my @requires = _uniq(map @{get_meta($_)->{'requires'}||[]}, @expanded);
   _ensure_covered({%to_merge},[@requires],{%{$args{defs}||{}}});
   my $pa = _pa_for;
 	my $new = create_meta(
@@ -136,24 +145,18 @@ sub reify {
   set_meta($pa->{'package'}, $new);
 	# Potential optimisation: can we just precompile the class if it's a plain invocation with no extra roles? Watch out for compilation at reify time
   foreach my $k (keys %to_merge) {
-    $pa->add_method($k, $to_merge{$k}->can($k));
+		if(!ref $to_merge{$k}) {
+			$pa->add_method($k, $to_merge{$k}->can($k));
+		} elsif (ref($to_merge{$k}) eq 'CODE') {
+			$pa->add_method($k, $to_merge{$k});
+		}
   }
-  return $pa->bless({_sanitise_reify_args($args{defs})});
+  return $pa->bless({_sanitise_reify_args(%{$args{defs}})});
 }
 
 sub clone {
   # Don't fucking ask.
 	Im::Util::Clone::clone_a(shift);
-}
-
-sub mutate {
-  my ($ref, $code) = @_;
-  # Eventually, this will deal with locking and unlocking
-  for ($ref) {
-    $code->($ref);
-		$ref = $_;
-  }
-	$ref;
 }
 
 sub finalise_unit {
