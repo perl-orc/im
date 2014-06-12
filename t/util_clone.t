@@ -20,6 +20,11 @@ eq_or_diff($a,$ret);
 $ret->{'a'} = 'a';
 eq_or_diff($a,{qw(a b c d)});
 
+$a = sub {42};
+$ret = clone_a($a);
+eq_or_diff($a,$ret);
+eq_or_diff($a->(),$ret->());
+
 {
   package T2;
   sub new {

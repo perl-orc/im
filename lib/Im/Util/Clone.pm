@@ -6,6 +6,8 @@ use warnings;
 use Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT = qw(clone_a);
+
+use Carp qw(carp croak);
 use Scalar::Util qw(blessed);
 use Safe::Isa;
 
@@ -44,7 +46,7 @@ sub clone_blessed {
 
 sub clone_a {
   my ($a) = @_;
-  return clone_simple($a)   if simple($a);
+  return clone_simple($a)   if simple($a)||coderef($a);
   return clone_arrayref($a) if arrayref($a);
   return clone_hashref($a)  if hashref($a);
   return clone_blessed($a)  if blessed($a);
