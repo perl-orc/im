@@ -20,14 +20,14 @@ sub has {
 
 sub requires {
   my (@names) = @_;
-	my $self = [caller]->[0];
-	add_requires(get_meta($self), @names);
+  my $self = [caller]->[0];
+ add_requires(get_meta($self), @names);
 }
 
 sub with {
   my (@names) = @_;
   my $self = [caller]->[0];
-	add_with(get_meta($self), @names);
+  add_with(get_meta($self), @names);
 }
 
 # Ick. How do we make this go away without XS?
