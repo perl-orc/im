@@ -120,7 +120,7 @@ subtest add_requires => sub {
   set_meta('T4', create_meta(package => 'T4'));
   add_requires('T4', qw(a b c));
   add_requires('T4', qw(b c d));
-  eq_or_diff('T4'->meta->{'requires'}, [qw(a b c d)]);
+  eq_or_diff([sort {$a cmp $b} @{'T4'->meta->{'requires'}}], [qw(a b c d)]);
 };
 
 subtest add_with => sub {
