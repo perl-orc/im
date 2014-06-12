@@ -147,8 +147,10 @@ sub mutate {
   # Eventually, this will deal with locking and unlocking
   for ($ref) {
     $code->($ref);
-    return $_;
+#		warn "_: $_";
+		$ref = $_;
   }
+	$ref;
 }
 
 sub finalise_unit {

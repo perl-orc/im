@@ -9,17 +9,20 @@ our @EXPORT_OK = qw(
   get_meta has_meta set_meta create_meta
   add_attribute add_requires add_with
   install_attr install_attrs install_sub
-  install_new install_does
+  install_new install_does _attr_config
 );
 
+use Carp qw(carp croak);
 use Im::Util::Unit qw(mutate _pa_for);
+use Im::Util::Clone;
 use Package::Anonish::PP;
 use Safe::Isa;
 use Scalar::Util qw(blessed);
 
 sub get_meta {
   my $thing = shift;
-	return ($thing->can('meta') ? $thing->meta : undef)
+  return $thing if $thing->$_isa('Im::Meta');
+  return eval { $thing->meta } || undef;
 }
 
 sub has_meta {
@@ -41,50 +44,60 @@ sub set_meta {
 sub create_meta {
   my (%attrs) = @_;
   my %defaults = (type => 'unit');
-	$defaults{units} = [$attrs{package}||()];
+  $defaults{units} = [$attrs{package}||()];
   return bless { %defaults, %attrs }, 'Im::Meta';
 }
 
 sub install_sub {
   my ($meta, $name, $code) = @_;
+  $meta = get_meta($meta);
   my $pa = Package::Anonish::PP->new($meta->{'package'});
-  $pa->add_method($name, $code);
+  return $pa->add_method($name, $code);
+}
+
+sub _attr_config {
+  my ($name, %conf) = @_;
+  $conf{init_arg} = $name
+    unless exists $conf{init_arg};
+  if (exists $conf{required} && !$conf{required}) {
+    $conf{predicate} = 1 unless exists $conf{predicate};
+  }
+  $conf{predicate} = "has_$name"
+    if $conf{predicate}||'' eq '1';
+  croak("Can't have a predicate and be required")
+    if $conf{predicate} && $conf{required};
+  croak("builder must be a CODE ref")
+    if $conf{builder} && ref($conf{builder}) ne 'CODE';
+  return %conf;
 }
 
 sub install_attr {
   my ($meta, $name, %conf) = @_;
-  $conf{init_arg} = $name
-    unless exists $conf{init_arg};
-  if ($conf{init_arg}) {
-    if ($conf{builder}) {
-			install_sub($meta, "_build_$name", $conf{builder});
-			install_sub($meta, $name, sub {
-        my $self = shift;
-        install_sub($meta, $name, sub { shift->{$name} });
-        mutate($self, sub {
-          $_->{$name} = $self->can("_build_$name")->($self);
-        });
-        $self->{$name};
+  $meta = get_meta($meta);
+  %conf = _attr_config($name, %conf);
+  if ($conf{builder}) {
+    # implies lazy
+    install_sub($meta, "_build_$name", $conf{builder});
+    install_sub($meta, $name, sub {
+      my $self = shift;
+      # Mutate before the next install_sub, or the tests won't pass
+      # It's just easier, trust me.
+      mutate($self, sub {
+        $_->{$name} = $self->can("_build_$name")->($self);
       });
-    } else {
-      croak("lazy attributes must have a supplied 'builder' (CODE ref)")
-        if ($conf{lazy});
-      install_sub ($meta, $name, sub { shift->{$name} });
-    }
+      install_sub($meta, $name, sub { shift->{$name} });
+      $self->{$name};
+    });
+  } else {
+    install_sub ($meta, $name, sub { shift->{$name} });
   }
-  if ($conf{required}) {
-		$conf{predicate} = 1
-			unless exists $conf{predicate};
-	}
-  if ($conf{predicate}) {
-    $conf{predicate} = $name
-      if $conf{predicate} eq '1';
-    install_sub($meta, $conf{predicate}, sub { defined shift->$name });
-  }
+  install_sub($meta, $conf{predicate}, sub { defined shift->$name })
+    if $conf{predicate};
 }
 
 sub install_attrs {
   my ($meta) = @_;
+  $meta = get_meta($meta);
   foreach my $k (keys %{$meta->{'attrs'}}) {
     install_attr($meta, $k, %{$meta->{'attrs'}->{$k}});
   }
@@ -92,7 +105,10 @@ sub install_attrs {
 
 sub add_attribute {
   my ($meta, $name, %spec) = @_;
-  my $new = clone($meta);
+  use Data::Dumper 'Dumper';
+  $meta = get_meta($meta);
+  warn Dumper $meta;
+  my $new = clone_a($meta);
   my %attrs = %{$meta->{'attrs'} || {}};
   $attrs{$name} = {%spec};
   $new = mutate($new, sub {
@@ -103,12 +119,13 @@ sub add_attribute {
 
 sub add_requires {
   my ($meta, @names) = @_;
-  my $new = clone($meta);
+  $meta = get_meta($meta);
+  my $new = clone_a($meta);
   my @requires = @{$meta->{'requires'} || []};
-	foreach my $n (@names) {
-		push @requires, $n
-			unless grep $_ eq $n, @requires;
-	}
+  foreach my $n (@names) {
+    push @requires, $n
+      unless grep $_ eq $n, @requires;
+  }
   $new = mutate($new, sub {
     $_->{'requires'} = [@requires];
   });
@@ -117,52 +134,57 @@ sub add_requires {
 
 sub add_with {
   my ($meta, @units) = @_;
-  my $new = clone($meta);
-  my @with = @{$meta->{'units'} || []};
+  $meta = get_meta($meta);
+  my $new = clone_a($meta);
+  my @with = @{ $meta->{'units'} || [] };
   foreach my $u (@units) {
     push @with, $u
-      unless (grep $_ eq $u, @with);
+      unless grep /^$u$/, @with;
   }
   $new = mutate($new, sub {
-    $_->{'with'} = [@with];
+    $_->{'units'} = [@with];
   });
   set_meta($meta->{'package'}, $new);
 }
 
 sub install_new {
   my ($meta) = @_;
-	my %attrs = %{$meta->{'attrs'}};
-	my @required;
-	foreach my $k (keys %attrs) {
-		if ($attrs{$k}->{'required'}) {
-			push @required, $k;
-		}
-	}
-	my $new = sub {
+  $meta = get_meta($meta);
+  my %attrs = %{$meta->{'attrs'}||{}};
+  my @required;
+  foreach my $k (keys %attrs) {
+    if ($attrs{$k}->{'required'}) {
+      push @required, $k;
+    }
+  }
+  my $new = sub {
     my (%args) = @_;
-		my @missing;
+    my @missing;
     foreach my $r (@required) {
-			push @missing, $r
-				unless defined $args{$r};
-		}
-		croak("The following required attributes are missing: " . join(", ", @missing))
-			if @missing;
-		return reify(units => [ $meta->{'package'} ], %args);
-	};
-	install_sub($meta->{'package'},'new', $new);
+      push @missing, $r
+        unless defined $args{$r};
+    }
+    croak("The following required attributes are missing: " . join(", ", @missing))
+      if @missing;
+    return reify(units => [ $meta->{'package'} ], %args);
+  };
+  install_sub($meta->{'package'},'new', $new);
 }
 
 sub install_does {
-	my $meta = shift;
-	my $does = sub {
+  my $meta = shift;
+  $meta = get_meta($meta);
+  my $does = sub {
     my ($self, @does) = @_;
+    my %lookup;
+    @lookup{@{get_meta($self)->{'units'}}} = ();
     foreach my $d (@does) {
-			return undef
-				unless grep $_ eq $d, get_meta($self)->{'with'};
-		}
-		1
-	};
-	install_sub($meta->{'package'},'does', $does);
+      return 0
+        unless exists $lookup{$d};
+    }
+    1
+  };
+  install_sub($meta->{'package'},'does', $does);
 }
 1
 __END__
