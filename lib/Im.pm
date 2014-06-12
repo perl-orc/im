@@ -21,7 +21,7 @@ sub has {
 sub requires {
   my (@names) = @_;
   my $self = [caller]->[0];
- add_requires(get_meta($self), @names);
+  add_requires(get_meta($self), @names);
 }
 
 sub with {
