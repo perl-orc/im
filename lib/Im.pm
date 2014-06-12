@@ -7,7 +7,7 @@ use Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT = qw(has _finalise_class);
 
-use Im::Util qw(declare_unit has_meta install_attr finalise_unit);
+use Im::Util qw(declare_unit has_meta add_requires add_with install_attr finalise_unit);
 
 sub has {
   my ($name, %conf) = @_;
@@ -16,6 +16,18 @@ sub has {
     unless has_meta($self);
   my $meta = get_meta($self);
   install_attr($meta, $name, %conf);
+}
+
+sub requires {
+  my (@names) = @_;
+	my $self = [caller]->[0];
+	add_requires(get_meta($self), @names);
+}
+
+sub with {
+  my (@names) = @_;
+  my $self = [caller]->[0];
+	add_with(get_meta($self), @names);
 }
 
 # Ick. How do we make this go away without XS?

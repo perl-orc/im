@@ -7,7 +7,7 @@ use Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(
   get_meta has_meta set_meta create_meta
-  add_attribute add_requires add_unit
+  add_attribute add_requires add_with
   install_attr install_attrs install_sub
 );
 
@@ -99,27 +99,29 @@ sub add_attribute {
 }
 
 sub add_requires {
-  my ($meta, $name, %spec) = @_;
+  my ($meta, @names) = @_;
   my $new = clone($meta);
   my @requires = @{$meta->{'requires'} || []};
-  push @requires, $name
-    unless grep $_ eq $name, @requires;
+	foreach my $n (@names) {
+		push @requires, $n
+			unless grep $_ eq $n, @requires;
+	}
   $new = mutate($new, sub {
     $_->{'requires'} = [@requires];
   });
   set_meta($meta->{'package'},$new);
 }
 
-sub add_unit {
+sub add_with {
   my ($meta, @units) = @_;
   my $new = clone($meta);
-  my @munits = @{$meta->{'units'} || []};
+  my @with = @{$meta->{'units'} || []};
   foreach my $u (@units) {
-    push @munits, $u
-      unless (grep $_ eq $u, @munits);
+    push @with, $u
+      unless (grep $_ eq $u, @with);
   }
   $new = mutate($new, sub {
-    $_->{'units'} = [@munits];
+    $_->{'with'} = [@with];
   });
   set_meta($meta->{'package'}, $new);
 }

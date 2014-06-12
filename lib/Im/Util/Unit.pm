@@ -14,7 +14,7 @@ our @EXPORT_OK = qw(
 );
 
 use Data::Lock qw(dlock);
-use Im::Util::Meta qw( get_meta has_meta set_meta create_meta add_attribute add_requires add_unit install_attr );
+use Im::Util::Meta qw( get_meta has_meta set_meta create_meta add_attribute add_requires add_with install_attr );
 use Package::Anonish::PP;
 use Safe::Isa;
 use Set::Scalar;
@@ -58,7 +58,10 @@ sub _methodref_to_string {
 sub _methods_to_merge {
 	my @units = @_;
   my @requires = (map @{$_->{'requires'}||[]}, @units);
+	# Keep two records:
+	# - methods and package they were first found in. name => "packagename"
   my %methods;
+  # - clashing methods only. name => ["packagename"]
   my %clashing;
   foreach my $u (@units) {
     my $pa = _pa_for($u);
@@ -74,7 +77,6 @@ sub _methods_to_merge {
 }
 
 sub _ensure_covered {
-  # All the required methods must be covered
   my ($methods, $required, $defs) = @_;
   my @failing;
   foreach my $r (@$required) {
@@ -98,20 +100,34 @@ sub _sanitise_reify_args {
 # - support some sort of logic for preferences. like optional reify in order, or here's an ordering, or these packages are deciders in the order provided, or these packagers are deciders but a clash is an error.
 # Or maybe we just need some helpers to construct the list of defs?
 
+sub _expand_units {
+  my @units = @_;
+	my @with = map @{get_meta($_)->{'with'}}, @units;
+	foreach my $w (@with) {
+		unless (grep $w eq $_, @units) {
+			my %dedupe;
+			@dedupe{@units,@with} = ();
+			return _expand_units(sort keys %dedupe);
+		}
+	}
+	return @units;
+}
+
 sub reify {
   my %args = @_;
   my @units = @{$args{units}||[]};
   croak("Cannot reify zero units")
     unless @units;
-  my %to_merge = _methods_to_merge(@units);
-  my @requires = map @{$_->{'requires'}}, @units;
+	my @expanded = _expand_units(@units);
+  my %to_merge = _methods_to_merge(@expanded);
+  my @requires = map @{$_->{'requires'}}, @expanded;
   _ensure_covered({%to_merge},[@requires],{%{$args{defs}||{}}});
   my $pa = _pa_for ( (@units == 1) ? $units[0] : ());
   if (@units > 1) {
     my $new = create_meta(
       package => $pa->{'package'},
       requires => [@requires],
-      units => [@units],
+      units => [@expanded],
     );
     set_meta($pa->{'package'}, $new);
     foreach my $k (keys %to_merge) {
