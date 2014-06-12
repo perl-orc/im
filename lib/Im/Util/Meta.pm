@@ -128,14 +128,14 @@ use Data::Dumper 'Dumper';
 sub add_requires {
   my ($meta, @names) = @_;
   $meta = get_meta($meta);
-	warn "meta: " . Dumper($meta);
+#	warn "meta: " . Dumper($meta);
   my @requires = _uniq(@{$meta->{'requires'} || []}, @names);
-	warn "requires: " . Dumper(\@requires);
+#	warn "requires: " . Dumper(\@requires);
   $meta = mutate($meta, sub {
     $_->{'requires'} = [@requires];
   });
-	warn "meta2: " . Dumper($meta);
-	warn "meta3: " . Dumper($meta->{'package'}->meta);
+#	warn "meta2: " . Dumper($meta);
+#	warn "meta3: " . Dumper($meta->{'package'}->meta);
 	set_meta($meta->{'package'},$meta);
 }
 
@@ -163,7 +163,7 @@ sub install_new {
     }
   }
   my $new = sub {
-    my (%args) = @_;
+    my ($class, %args) = @_;
     my @missing;
     foreach my $r (@required) {
       push @missing, $r
@@ -171,7 +171,7 @@ sub install_new {
     }
     croak("The following required attributes are missing: " . join(", ", @missing))
       if @missing;
-    return reify(units => [ $meta->{'package'} ], %args);
+    return Im::Util::Unit::reify(units => [ $meta->{'package'} ], %args);
   };
   install_sub($meta->{'package'},'new', $new);
 }
@@ -201,6 +201,9 @@ sub mutate {
 	$ref;
 }
 
+# Don't fucking ask.
+require Im::Util::Unit;
+Im::Util::Unit->import('reify');
 
 1
 __END__

@@ -17,8 +17,8 @@ use Im::Util::Meta qw(
 }
 
 subtest mutate => sub {
-	my $hr = {foo => 'bar'};
-	my $ret = mutate($hr, sub {$_->{'bar'} = 'baz'});
+  my $hr = {foo => 'bar'};
+  my $ret = mutate($hr, sub {$_->{'bar'} = 'baz'});
   eq_or_diff($hr->{'bar'}, 'baz');
   eq_or_diff($ret->{'bar'}, 'baz');
   eq_or_diff($hr->{'foo'}, 'bar');
@@ -137,9 +137,23 @@ subtest install_does => sub {
 };
 
 subtest install_new => sub {
-  install_new(T1->meta);
-  # TODO: can't really test this until we've tested reify :(
-  ok(1);
+  mutate(T1->meta, sub {
+    $_->{'attrs'} = {
+      foo => {required => 1},
+      bar => {init_arg => 'bar'},
+    };
+  });
+  local *T1::bar = sub { 43 };
+  install_new('T1');
+  throws_ok {
+    T1->new;
+  } qr/The following required attributes are missing: foo/;
+  my $new = T1->new(foo => 'bar', bar => 'baz');
+  eq_or_diff($new->foo, 42);
+  eq_or_diff($new->bar, 43);
+  # This not throwing is a success in and of itself
+  $new = T1->new(foo => 'bar', requires => ['baz'], defs => {baz => sub {43}});
+  eq_or_diff($new->baz,43);
 };
 
 

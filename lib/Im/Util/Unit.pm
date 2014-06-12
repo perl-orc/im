@@ -83,6 +83,11 @@ sub _methods_to_merge {
 	if (%clashing) {
 		croak("Some units were unable to be merged. Here are the methods defined in multiple packages:\n" . _methodref_to_string({%clashing}));
 	}
+	foreach my $d (keys %$defs) {
+		if (!defined $methods{$d}) {
+			$methods{$d} = $defs->{$d};
+		}
+	}
   return %methods;
 }
 
