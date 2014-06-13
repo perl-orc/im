@@ -10,6 +10,17 @@ our @EXPORT = qw(has requires with);
 use Im::Util::Meta qw(has_meta add_requires add_with add_attr);
 use Im::Util::Unit qw(declare_unit);
 
+sub import {
+	if (grep /^-noexport$/, @_) {
+		@_ = (grep /^-noexport$/, @_);
+	} else {
+    my $self = [caller]->[0];
+    declare_unit($self)
+      unless has_meta($self);
+	}
+  __PACKAGE__->export_to_level(1,@_);
+}
+
 sub has {
   my ($name, %conf) = @_;
   my $self = [caller]->[0];

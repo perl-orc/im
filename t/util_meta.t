@@ -149,6 +149,7 @@ subtest install_new => sub {
   throws_ok {
     T1->new;
   } qr/The following required attributes are missing: foo/;
+	# This causes new accessors to be generated, so our old values don't work
   my $new = T1->new(foo => 'bar', bar => 'baz');
   eq_or_diff($new->foo, 'bar');
   eq_or_diff($new->bar, 'baz');
