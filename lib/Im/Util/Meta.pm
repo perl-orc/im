@@ -157,20 +157,25 @@ sub install_new {
     }
   }
   my $new = sub {
-    my ($class, %args) = @_;
-    my @missing;
-    foreach my $r (@required) {
-      push @missing, $r
-        unless defined $args{$r};
-    }
-    croak("The following required attributes are missing: " . join(", ", @missing))
-      if @missing;
-		$args{units} = [ $meta->{'package'} ]
-			if !$args{units};
-		unless (grep ($_ eq $meta->{'package'}), @{$args{units}}) {
-			unshift @{$args{units}}, $meta->{'package'};
-		}
-    return Im::Util::Unit::reify(%args);
+    my ($self) = (@_);
+    my $new2 = sub {
+	    my ($class, %args) = @_;
+	    my @missing;
+	    foreach my $r (@required) {
+	      push @missing, $r
+	        unless defined $args{$r};
+	    }
+	    croak("The following required attributes are missing: " . join(", ", @missing))
+	      if @missing;
+			$args{units} = [ $meta->{'package'} ]
+				if !$args{units};
+			unless (grep ($_ eq $meta->{'package'}), @{$args{units}}) {
+				unshift @{$args{units}}, $meta->{'package'};
+			}
+	    return Im::Util::Unit::reify(%args);
+    };
+    install_sub($self->meta->{'package'},' new', $new2);
+		return $new2->(@_);
   };
   install_sub($meta->{'package'},'new', $new);
 }

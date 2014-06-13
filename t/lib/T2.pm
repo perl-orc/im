@@ -2,6 +2,6 @@ package T2;
 
 use Im;
 
-_finalise_unit;
+has 'quux';
 1
 __END__

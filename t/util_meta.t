@@ -143,6 +143,7 @@ subtest install_new => sub {
       bar => {init_arg => 'bar'},
     };
   });
+  no warnings 'redefine';
   local *T1::bar = sub { 43 };
   install_new('T1');
   throws_ok {

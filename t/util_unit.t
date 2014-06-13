@@ -1,7 +1,7 @@
 use Test::Most;
 
 use Im::Util::Unit qw(
-  declare_unit finalise_unit
+  declare_unit
   reify
   clone
   _diff_ars _methodref_to_string _methods_to_merge
@@ -88,48 +88,15 @@ subtest _expand_units => sub {
 };
 
 subtest declare_unit => sub {
-	no warnings 'redefine';
-  local *Im::Util::Meta::set_meta = sub {die(shift);};
-  throws_ok {
-    declare_unit('Bar');
-  } qr/Bar/;
-};
-
-subtest finalise_unit => sub {
   {
-		no warnings 'redefine';
-		local *Im::Util::Meta::install_attrs = sub {die(shift);};
-		local *Im::Util::Meta::install_new = sub {};
-		local *Im::Util::Meta::install_does = sub {};
-		throws_ok {
-      finalise_unit('foo');
-    } qr/foo/;
-	}
-  {
-		no warnings 'redefine';
-		local *Im::Util::Meta::install_attrs = sub {};
-		local *Im::Util::Meta::install_new = sub {die(shift);};
-		local *Im::Util::Meta::install_does = sub {};
-		throws_ok {
-      finalise_unit('foo');
-    } qr/foo/;
-	}
-  {
-		no warnings 'redefine';
-		local *Im::Util::Meta::install_attrs = sub {};
-		local *Im::Util::Meta::install_new = sub {};
-		local *Im::Util::Meta::install_does = sub {die(shift);};
-		throws_ok {
-      finalise_unit('foo');
-    } qr/foo/;
-	}
-  {
-		no warnings 'redefine';
-		local *Im::Util::Meta::install_attrs = sub {};
-		local *Im::Util::Meta::install_new = sub {};
-		local *Im::Util::Meta::install_does = sub {};
-		finalise_unit('foo');
-	}
+  	no warnings 'redefine';
+    local *Im::Util::Meta::set_meta = sub {die(shift);};
+    throws_ok {
+      declare_unit('Bar');
+    } qr/Bar/;
+  }
+  declare_unit('Bar');
+  ok(Bar->can('new'));
 };
 
 subtest reify => sub {

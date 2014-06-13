@@ -1,0 +1,6 @@
+* Make new reinstall itself
+* Fix init_arg
+* Test BUILD is executed and the results are treated correctly
+* BEGIN|CHECK|INIT|END|UNITCHECK|AUTOLOAD|__ANON__
+* isa
+* coerce

@@ -6,7 +6,7 @@ use warnings;
 use Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(
-  declare_unit finalise_unit
+  declare_unit
   reify
   clone
   _diff_ars _methodref_to_string _methods_to_merge
@@ -25,6 +25,8 @@ sub declare_unit {
   my ($package) = @_;
   # Don't fucking ask.
   Im::Util::Meta::set_meta($package);
+  install_new($package);
+  install_does($package);
 }
 
 sub _diff_ars {
@@ -67,7 +69,7 @@ sub _methods_to_merge {
     my $pa = _pa_for($u);
     foreach my $m ($pa->methods) {
 			# Taking the piss much?
-			next if $m =~ /^(?:meta|new|does|requires|import|with|has|_finalise_unit|BEGIN|CHECK|INIT|END|__ANON__)$/;
+			next if $m =~ /^(?:meta|new|does|requires|import|with|has|_finalise_unit|BEGIN|CHECK|INIT|END|UNITCHECK|AUTOLOAD|__ANON__)$/;
 			$clashing{$m} = ($clashing{$m} ? [(@{$clashing{$m}||[]}, $u)] : [$methods{$m}, $u])
 				if defined $methods{$m};
       $methods{$m} = $u;
@@ -92,6 +94,8 @@ sub _methods_to_merge {
 
 sub _ensure_covered {
   my ($methods, $required, $defs) = @_;
+	use Data::Dumper 'Dumper';
+	warn "d: " . Dumper(\@_);
   my @failing;
   foreach my $r (@$required) {
     unless (defined($methods->{$r}) || defined($defs->{$r})) {
@@ -111,7 +115,6 @@ sub _sanitise_reify_args {
 
 sub _expand_units {
   my @units = @_;
-	carp "units: ", @units;
 	my @with = map @{get_meta($_)->{'units'}}, @units;
 	foreach my $w (@with) {
 		unless (grep $w eq $_, @units) {
@@ -140,6 +143,8 @@ sub reify {
 	my @expanded = _expand_units(@units);
   my %to_merge = _methods_to_merge([@expanded],$args{defs}||{});
   my @requires = _uniq(map @{get_meta($_)->{'requires'}||[]}, @expanded);
+	use Data::Dumper 'Dumper';
+	warn Dumper([({%to_merge},[@requires],{%{$args{defs}||{}}})]);
   _ensure_covered({%to_merge},[@requires],{%{$args{defs}||{}}});
   my $pa = _pa_for;
 	my $new = create_meta(
@@ -174,14 +179,6 @@ sub reify {
 sub clone {
   # Don't fucking ask.
 	Im::Util::Clone::clone_a(shift);
-}
-
-sub finalise_unit {
-  my ($meta) = @_;
-  # Don't fucking ask.
-  Im::Util::Meta::install_attrs($meta);
-  Im::Util::Meta::install_new($meta);
-  Im::Util::Meta::install_does($meta);
 }
 
 1

@@ -12,7 +12,5 @@ has baz => (
   predicate => undef,
 );
 
-_finalise_unit;
-
 1
 __END__

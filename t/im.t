@@ -11,5 +11,5 @@ eq_or_diff(
   {package => 'T1', requires => ['foo'], type => 'unit', units => [qw(T1 T2)], attrs => {foo => {required => 1}, bar => {builder => sub {}}, baz => {builder => sub{}, predicate => undef}}});
 
 my $t1 = T1->new(  foo => 1, bar => 2);
-eq_or_diff({%$t1},{foo => 1, bar => 2});
+# eq_or_diff({%$t1},{foo => 1, bar => 2});
 done_testing;
