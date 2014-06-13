@@ -113,6 +113,7 @@ sub add_attr {
   mutate($meta, sub {
     $_->{'attrs'} = {%attrs};
   });
+  set_meta($meta->{'package'}, $meta);
 }
 
 sub _uniq {
@@ -129,6 +130,9 @@ sub add_requires {
   mutate($meta, sub {
     $_->{'requires'} = [@requires];
   });
+  set_meta($meta->{'package'}, $meta);
+	use Data::Dumper 'Dumper';
+	warn "now:" . Dumper($meta);
 }
 
 sub add_with {
@@ -142,6 +146,7 @@ sub add_with {
   mutate($meta, sub {
     $_->{'units'} = [@with];
   });
+  set_meta($meta->{'package'}, $meta);
 }
 
 sub install_new {
@@ -189,14 +194,16 @@ sub install_does {
   install_sub($meta->{'package'},'does', $does);
 }
 
+use Data::Dumper 'Dumper';
+
 sub mutate {
   my ($ref, $code) = @_;
   # Eventually, this will deal with locking and unlocking
-  for ($ref) {
-    $code->($ref);
-		$ref = $_;
-  }
-	$ref;
+  local $_ = $ref;
+	warn "before: " . Dumper ($_);
+   $code->($ref);
+	warn "after: " . Dumper ($_);
+	return $ref;
 }
 
 # Don't fucking ask.

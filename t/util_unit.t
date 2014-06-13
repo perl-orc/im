@@ -56,15 +56,15 @@ subtest _methodref_to_string => sub {
 
 subtest _methods_to_merge => sub {
   my @exp = map quotemeta, (
-    qq(Some units were unable to be merged. Here are the methods defined in multiple packages:\n+-----+-----+\n| key | val |\n+-----+-----+\n| foo | T7  |\n| foo | T3  |\n+-----+-----+),
-    qq(Some units were unable to be merged. Here are the methods defined in multiple packages:\n+-----+-----+\n| key | val |\n+-----+-----+\n| bar | T8  |\n| bar | T3  |\n+-----+-----+),
-    qq(Some units were unable to be merged. Here are the methods defined in multiple packages:\n+-----+-----+\n| key | val |\n+-----+-----+\n| bar | T8  |\n| bar | T3  |\n| foo | T7  |\n| foo | T3  |\n+-----+-----+),
+    qq(Some units were unable to be merged. Here are the methods defined in multiple packages:\n+-----+-----+\n| key | val |\n+-----+-----+\n| foo | T3  |\n| foo | T7  |\n+-----+-----+),
+    qq(Some units were unable to be merged. Here are the methods defined in multiple packages:\n+-----+-----+\n| key | val |\n+-----+-----+\n| bar | T3  |\n| bar | T8  |\n+-----+-----+),
+    qq(Some units were unable to be merged. Here are the methods defined in multiple packages:\n+-----+-----+\n| key | val |\n+-----+-----+\n| bar | T3  |\n| bar | T8  |\n| foo | T3  |\n| foo | T7  |\n+-----+-----+),
   );
 	throws_ok {
-    _methods_to_merge(['T7','T3']);
+    _methods_to_merge(['T3','T7']);
   } qr/$exp[0]/;
 	throws_ok {
-    _methods_to_merge(['T8','T3']);
+    _methods_to_merge(['T3','T8']);
   } qr/$exp[1]/;
 	throws_ok {
     _methods_to_merge(['T7','T8','T3']);
@@ -137,10 +137,10 @@ subtest reify => sub {
     reify;
   } qr/Cannot reify zero units/;
 	add_requires('T7','bar');
-  finalise_unit('T7');
+#  finalise_unit('T7');
 	eq_or_diff(T7->meta->{'requires'},['bar']);
 	add_requires('T8','foo');
-  finalise_unit('T8');
+#  finalise_unit('T8');
 	eq_or_diff(T8->meta->{'requires'},['foo']);
   my $ret = reify(units => [qw(T7 T8)], defs => {foo => sub{}, bar => sub{}});
 	eq_or_diff($ret->meta->{'units'},[qw(T3 T4 T7 T8)]);
