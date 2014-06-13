@@ -69,7 +69,7 @@ sub _methods_to_merge {
     my $pa = _pa_for($u);
     foreach my $m ($pa->methods) {
 			# Taking the piss much?
-			next if $m =~ /^(?:meta|new|does|requires|import|with|has|_finalise_unit|BEGIN|CHECK|INIT|END|UNITCHECK|AUTOLOAD|__ANON__)$/;
+			next if $m =~ /^(?:meta|new|does|requires|import|with|has|BEGIN|CHECK|INIT|END|UNITCHECK|AUTOLOAD|__ANON__)$/;
 			$clashing{$m} = ($clashing{$m} ? [(@{$clashing{$m}||[]}, $u)] : [$methods{$m}, $u])
 				if defined $methods{$m};
       $methods{$m} = $u;
@@ -94,8 +94,6 @@ sub _methods_to_merge {
 
 sub _ensure_covered {
   my ($methods, $required, $defs) = @_;
-	use Data::Dumper 'Dumper';
-	warn "d: " . Dumper(\@_);
   my @failing;
   foreach my $r (@$required) {
     unless (defined($methods->{$r}) || defined($defs->{$r})) {
@@ -143,8 +141,6 @@ sub reify {
 	my @expanded = _expand_units(@units);
   my %to_merge = _methods_to_merge([@expanded],$args{defs}||{});
   my @requires = _uniq(map @{get_meta($_)->{'requires'}||[]}, @expanded);
-	use Data::Dumper 'Dumper';
-	warn Dumper([({%to_merge},[@requires],{%{$args{defs}||{}}})]);
   _ensure_covered({%to_merge},[@requires],{%{$args{defs}||{}}});
   my $pa = _pa_for;
 	my $new = create_meta(

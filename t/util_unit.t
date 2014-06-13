@@ -104,10 +104,8 @@ subtest reify => sub {
     reify;
   } qr/Cannot reify zero units/;
 	add_requires('T7','bar');
-#  finalise_unit('T7');
 	eq_or_diff(T7->meta->{'requires'},['bar']);
 	add_requires('T8','foo');
-#  finalise_unit('T8');
 	eq_or_diff(T8->meta->{'requires'},['foo']);
   my $ret = reify(units => [qw(T7 T8)], defs => {foo => sub{}, bar => sub{}});
 	eq_or_diff($ret->meta->{'units'},[qw(T3 T4 T7 T8)]);

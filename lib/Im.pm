@@ -5,7 +5,7 @@ use warnings;
 
 use Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT = qw(has requires with _finalise_unit);
+our @EXPORT = qw(has requires with);
 
 use Im::Util::Meta qw(has_meta add_requires add_with add_attr);
 use Im::Util::Unit qw(declare_unit);

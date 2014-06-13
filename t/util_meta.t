@@ -150,8 +150,8 @@ subtest install_new => sub {
     T1->new;
   } qr/The following required attributes are missing: foo/;
   my $new = T1->new(foo => 'bar', bar => 'baz');
-  eq_or_diff($new->foo, 42);
-  eq_or_diff($new->bar, 43);
+  eq_or_diff($new->foo, 'bar');
+  eq_or_diff($new->bar, 'baz');
   # This not throwing is a success in and of itself
   $new = T1->new(foo => 'bar', requires => ['baz'], defs => {baz => sub {43}});
   eq_or_diff($new->baz,43);
