@@ -2,7 +2,7 @@ use Test::Most;
 
 use Im::Util::Meta qw(
   get_meta has_meta set_meta create_meta
-  add_attribute add_requires add_with
+  add_attr add_requires add_with
   install_attr install_attrs install_sub mutate
   install_new install_does _attr_config _pa_for
 );
@@ -102,11 +102,11 @@ subtest install_attr => sub {
   ok(!$t2->can('has_baz'));
 };
 
-subtest "install_attrs, add_attribute" => sub {
+subtest "install_attrs, add_attr" => sub {
   set_meta('T3', create_meta(package=>'T3'));
-  add_attribute('T3', 'foo');
-  add_attribute('T3', 'bar', builder => sub { 42 });
-  add_attribute('T3', 'baz', builder => sub { 42 }, predicate => undef);
+  add_attr('T3', 'foo');
+  add_attr('T3', 'bar', builder => sub { 42 });
+  add_attr('T3', 'baz', builder => sub { 42 }, predicate => undef);
   install_attrs('T3');
   my $t3 = bless({qw(foo bar bar baz baz quux)}, 'T3');
   eq_or_diff($t3->foo,'bar');

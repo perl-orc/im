@@ -5,34 +5,40 @@ use warnings;
 
 use Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT = qw(has _finalise_class);
+our @EXPORT = qw(has requires with _finalise_unit);
 
-use Im::Util qw(declare_unit has_meta add_requires add_with install_attr finalise_unit);
+use Im::Util::Meta qw(has_meta add_requires add_with add_attr);
+use Im::Util::Unit qw(declare_unit finalise_unit);
 
 sub has {
   my ($name, %conf) = @_;
   my $self = [caller]->[0];
   declare_unit($self)
     unless has_meta($self);
-  my $meta = get_meta($self);
-  install_attr($meta, $name, %conf);
+  add_attr($self, $name, %conf);
 }
 
 sub requires {
   my (@names) = @_;
   my $self = [caller]->[0];
-  add_requires(get_meta($self), @names);
+  declare_unit($self)
+    unless has_meta($self);
+  add_requires($self, @names);
 }
 
 sub with {
   my (@names) = @_;
   my $self = [caller]->[0];
-  add_with(get_meta($self), @names);
+  declare_unit($self)
+    unless has_meta($self);
+  add_with($self, @names);
 }
 
 # Ick. How do we make this go away without XS?
-sub _finalise_class {
+sub _finalise_unit {
   my $self = [caller]->[0];
+  declare_unit($self)
+    unless has_meta($self);
   finalise_unit($self);
 }
 

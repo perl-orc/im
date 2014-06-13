@@ -7,7 +7,7 @@ use Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(
   get_meta has_meta set_meta create_meta
-  add_attribute add_requires add_with
+  add_attr add_requires add_with
   install_attr install_attrs install_sub mutate
   install_new install_does _attr_config _pa_for
 );
@@ -105,11 +105,9 @@ sub install_attrs {
   }
 }
 
-sub add_attribute {
+sub add_attr {
   my ($meta, $name, %spec) = @_;
-  use Data::Dumper 'Dumper';
   $meta = get_meta($meta);
-#  warn Dumper $meta;
   my %attrs = %{$meta->{'attrs'} || {}};
   $attrs{$name} = {%spec};
   mutate($meta, sub {
@@ -123,20 +121,14 @@ sub _uniq {
 	return keys %t;
 }
 
-use Data::Dumper 'Dumper';
-
 sub add_requires {
   my ($meta, @names) = @_;
   $meta = get_meta($meta);
-#	warn "meta: " . Dumper($meta);
   my @requires = _uniq(@{$meta->{'requires'} || []}, @names);
-#	warn "requires: " . Dumper(\@requires);
-  $meta = mutate($meta, sub {
+	warn @requires;
+  mutate($meta, sub {
     $_->{'requires'} = [@requires];
   });
-#	warn "meta2: " . Dumper($meta);
-#	warn "meta3: " . Dumper($meta->{'package'}->meta);
-	set_meta($meta->{'package'},$meta);
 }
 
 sub add_with {
@@ -171,7 +163,12 @@ sub install_new {
     }
     croak("The following required attributes are missing: " . join(", ", @missing))
       if @missing;
-    return Im::Util::Unit::reify(units => [ $meta->{'package'} ], %args);
+		$args{units} = [ $meta->{'package'} ]
+			if !$args{units};
+		unless (grep ($_ eq $meta->{'package'}), @{$args{units}}) {
+			unshift @{$args{units}}, $meta->{'package'};
+		}
+    return Im::Util::Unit::reify(%args);
   };
   install_sub($meta->{'package'},'new', $new);
 }
@@ -197,6 +194,7 @@ sub mutate {
   # Eventually, this will deal with locking and unlocking
   for ($ref) {
     $code->($ref);
+		$ref = $_;
   }
 	$ref;
 }

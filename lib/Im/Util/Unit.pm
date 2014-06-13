@@ -16,7 +16,7 @@ our @EXPORT_OK = qw(
 use Carp qw(carp croak);
 use Data::Lock qw(dlock);
 use Im::Util::Clone;
-use Im::Util::Meta qw( get_meta has_meta set_meta create_meta add_attribute add_requires add_with install_attr install_new install_does _pa_for mutate);
+use Im::Util::Meta qw( get_meta has_meta set_meta create_meta add_requires add_with install_attr install_new install_does _pa_for mutate);
 use Package::Anonish::PP;
 use Safe::Isa;
 use Set::Scalar;
@@ -66,15 +66,14 @@ sub _methods_to_merge {
   foreach my $u (@units) {
     my $pa = _pa_for($u);
     foreach my $m ($pa->methods) {
-			next if $m eq 'meta' || $m eq 'new' || $m eq 'does';
+			# Taking the piss much?
+			next if $m =~ /^(?:meta|new|does|requires|import|with|has|_finalise_unit|BEGIN|CHECK|INIT|END|__ANON__)$/;
 			$clashing{$m} = ($clashing{$m} ? [(@{$clashing{$m}||[]}, $u)] : [$methods{$m}, $u])
 				if defined $methods{$m};
       $methods{$m} = $u;
     }
   }
 	foreach my $c (keys %clashing) {
-#		use Data::Dumper 'Dumper';
-#		warn(Dumper $defs);
 		if (defined $defs->{$c}) {
 			$methods{$c} = $defs->{$c};
 			delete $clashing{$c};
@@ -112,6 +111,7 @@ sub _sanitise_reify_args {
 
 sub _expand_units {
   my @units = @_;
+	carp "units: ", @units;
 	my @with = map @{get_meta($_)->{'units'}}, @units;
 	foreach my $w (@with) {
 		unless (grep $w eq $_, @units) {
@@ -123,14 +123,16 @@ sub _expand_units {
 	return @units;
 }
 
+sub _uniq {
+  my %t; @t{@_} = (); return sort keys %t;
+}
+
+use Data::Dumper 'Dumper';
+
 # So much to do to this
 # We could start with:
 # - support some sort of logic for preferences. like optional reify in order, or here's an ordering, or these packages are deciders in the order provided, or these packagers are deciders but a clash is an error.
 # Or maybe we just need some helpers to construct the list of defs?
-
-sub _uniq {
-  my %t; @t{@_} = (); return sort keys %t;
-}
 
 sub reify {
   my %args = @_;
@@ -150,13 +152,25 @@ sub reify {
   set_meta($pa->{'package'}, $new);
 	# Potential optimisation: can we just precompile the class if it's a plain invocation with no extra roles? Watch out for compilation at reify time
   foreach my $k (keys %to_merge) {
-		if(!ref $to_merge{$k}) {
+		if($to_merge{$k} && !ref($to_merge{$k})) {
 			$pa->add_method($k, $to_merge{$k}->can($k));
 		} elsif (ref($to_merge{$k}) eq 'CODE') {
 			$pa->add_method($k, $to_merge{$k});
+		} else {
+			croak("Don't know what to do with $k");
 		}
   }
-  return $pa->bless({_sanitise_reify_args(%{$args{defs}})});
+  my $blessed = $pa->bless({});
+	my %sanitary = _sanitise_reify_args(%args);
+	if ($blessed->can('BUILD')) {
+		%sanitary = $blessed->BUILD(%sanitary);
+	}
+	mutate($blessed, sub {
+		foreach my $k (keys %sanitary) {
+      $_->{$k} = $sanitary{$k};
+		}
+  });
+	$blessed;
 }
 
 sub clone {

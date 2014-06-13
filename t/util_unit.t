@@ -10,25 +10,25 @@ use Im::Util::Unit qw(
 use Im::Util::Meta qw(add_requires);
 # Packages are cheap, they burn well
 {
-  package T1;
+  package T7;
   sub meta {
-    return bless {units => [qw(T1 T2)], package => 'T1'}, 'Im::Meta';
+    return bless {units => [qw(T7 T8)], package => 'T7'}, 'Im::Meta';
   }
   sub foo {}
-  package T2;
+  package T8;
   sub meta {
-    return bless {units => [qw(T1 T3 T4)], package => 'T2'}, 'Im::Meta';
+    return bless {units => [qw(T7 T3 T4)], package => 'T8'}, 'Im::Meta';
   }
   sub bar {}
   package T3;
   sub meta {
-    return bless {units => [qw(T1 T2 T4)], package => 'T3'}, 'Im::Meta';
+    return bless {units => [qw(T7 T8 T4)], package => 'T3'}, 'Im::Meta';
   }
   sub foo {}
   sub bar {}
   package T4;
   sub meta {
-    return bless {units => [qw(T4 T2)], package => 'T4'}, 'Im::Meta';
+    return bless {units => [qw(T4 T8)], package => 'T4'}, 'Im::Meta';
   }
   package T5;
   package T6;
@@ -56,20 +56,20 @@ subtest _methodref_to_string => sub {
 
 subtest _methods_to_merge => sub {
   my @exp = map quotemeta, (
-    qq(Some units were unable to be merged. Here are the methods defined in multiple packages:\n+-----+-----+\n| key | val |\n+-----+-----+\n| foo | T1  |\n| foo | T3  |\n+-----+-----+),
-    qq(Some units were unable to be merged. Here are the methods defined in multiple packages:\n+-----+-----+\n| key | val |\n+-----+-----+\n| bar | T2  |\n| bar | T3  |\n+-----+-----+),
-    qq(Some units were unable to be merged. Here are the methods defined in multiple packages:\n+-----+-----+\n| key | val |\n+-----+-----+\n| bar | T2  |\n| bar | T3  |\n| foo | T1  |\n| foo | T3  |\n+-----+-----+),
+    qq(Some units were unable to be merged. Here are the methods defined in multiple packages:\n+-----+-----+\n| key | val |\n+-----+-----+\n| foo | T7  |\n| foo | T3  |\n+-----+-----+),
+    qq(Some units were unable to be merged. Here are the methods defined in multiple packages:\n+-----+-----+\n| key | val |\n+-----+-----+\n| bar | T8  |\n| bar | T3  |\n+-----+-----+),
+    qq(Some units were unable to be merged. Here are the methods defined in multiple packages:\n+-----+-----+\n| key | val |\n+-----+-----+\n| bar | T8  |\n| bar | T3  |\n| foo | T7  |\n| foo | T3  |\n+-----+-----+),
   );
 	throws_ok {
-    _methods_to_merge(['T1','T3']);
+    _methods_to_merge(['T7','T3']);
   } qr/$exp[0]/;
 	throws_ok {
-    _methods_to_merge(['T2','T3']);
+    _methods_to_merge(['T8','T3']);
   } qr/$exp[1]/;
 	throws_ok {
-    _methods_to_merge(['T1','T2','T3']);
+    _methods_to_merge(['T7','T8','T3']);
   } qr/$exp[2]/;
-  eq_or_diff({_methods_to_merge(['T1','T2'])},{foo => 'T1', bar => 'T2'});
+  eq_or_diff({_methods_to_merge(['T7','T8'])},{foo => 'T7', bar => 'T8'});
 };
 
 subtest _ensure_covered => sub {
@@ -84,7 +84,7 @@ subtest _sanitise_reify_args => sub {
 	eq_or_diff({_sanitise_reify_args(foo => 'bar', defs => {}, units => [])},{foo=>'bar'});
 };
 subtest _expand_units => sub {
-  eq_or_diff([sort {$a cmp $b} _expand_units('T1')],[qw(T1 T2 T3 T4)]);
+  eq_or_diff([sort {$a cmp $b} _expand_units('T7')],[qw(T3 T4 T7 T8)]);
 };
 
 subtest declare_unit => sub {
@@ -132,22 +132,18 @@ subtest finalise_unit => sub {
 	}
 };
 
-use Data::Dumper 'Dumper';
-
 subtest reify => sub {
 	throws_ok {
     reify;
   } qr/Cannot reify zero units/;
-	# warn Dumper(T1->meta);
-	add_requires('T1','bar');
-	# warn Dumper(T1->meta);
-  finalise_unit('T1');
-	eq_or_diff(T1->meta->{'requires'},['bar']);
-	add_requires('T2','foo');
-  finalise_unit('T2');
-	eq_or_diff(T2->meta->{'requires'},['foo']);
-  my $ret = reify(units => [qw(T1 T2)], defs => {foo => sub{}, bar => sub{}});
-	eq_or_diff($ret->meta->{'units'},[qw(T1 T2 T3 T4)]);
+	add_requires('T7','bar');
+  finalise_unit('T7');
+	eq_or_diff(T7->meta->{'requires'},['bar']);
+	add_requires('T8','foo');
+  finalise_unit('T8');
+	eq_or_diff(T8->meta->{'requires'},['foo']);
+  my $ret = reify(units => [qw(T7 T8)], defs => {foo => sub{}, bar => sub{}});
+	eq_or_diff($ret->meta->{'units'},[qw(T3 T4 T7 T8)]);
 	eq_or_diff($ret->meta->{'requires'},[qw(bar foo)]);
 };
 
