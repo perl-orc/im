@@ -126,13 +126,10 @@ sub add_requires {
   my ($meta, @names) = @_;
   $meta = get_meta($meta);
   my @requires = _uniq(@{$meta->{'requires'} || []}, @names);
-	warn @requires;
   mutate($meta, sub {
     $_->{'requires'} = [@requires];
   });
   set_meta($meta->{'package'}, $meta);
-	use Data::Dumper 'Dumper';
-	warn "now:" . Dumper($meta);
 }
 
 sub add_with {
@@ -194,15 +191,11 @@ sub install_does {
   install_sub($meta->{'package'},'does', $does);
 }
 
-use Data::Dumper 'Dumper';
-
 sub mutate {
   my ($ref, $code) = @_;
   # Eventually, this will deal with locking and unlocking
   local $_ = $ref;
-	warn "before: " . Dumper ($_);
    $code->($ref);
-	warn "after: " . Dumper ($_);
 	return $ref;
 }
 

@@ -127,8 +127,6 @@ sub _uniq {
   my %t; @t{@_} = (); return sort keys %t;
 }
 
-use Data::Dumper 'Dumper';
-
 # So much to do to this
 # We could start with:
 # - support some sort of logic for preferences. like optional reify in order, or here's an ordering, or these packages are deciders in the order provided, or these packagers are deciders but a clash is an error.
