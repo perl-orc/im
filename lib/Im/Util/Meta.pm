@@ -174,7 +174,7 @@ sub install_new {
 			}
 	    return Im::Util::Unit::reify(%args);
     };
-    install_sub($self->meta->{'package'},' new', $new2);
+    install_sub($self->meta->{'package'}, 'new', $new2);
 		install_attrs($self);
 		return $new2->(@_);
   };
