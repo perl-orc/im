@@ -83,6 +83,7 @@ subtest install_attr => sub {
   install_attr('T2', 'bar', builder => sub { 42 });
   ok($t2->can('_build_bar'));
   {
+    no warnings qw(redefine once);
     local *T2::_build_bar = sub {die("DELIBERATE");};
     # We expect it to call the builder
     throws_ok {
@@ -92,6 +93,7 @@ subtest install_attr => sub {
   # Now, having unhooked it, it should return the content of the builder
   eq_or_diff($t2->bar, 42);
   {
+    no warnings qw(redefine once);
     local *T2::_build_bar = sub {die("DELIBERATE");};
     # The second time round, don't build. Success, the final attr is installed
     eq_or_diff($t2->bar, 42);
@@ -143,7 +145,7 @@ subtest install_new => sub {
       bar => {init_arg => 'bar'},
     };
   });
-  no warnings 'redefine';
+  no warnings qw(redefine once);
   local *T1::bar = sub { 43 };
   install_new('T1');
   throws_ok {
