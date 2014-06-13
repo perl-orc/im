@@ -158,3 +158,5 @@ Takes a list of unit names to compose as unit instantiation time. Strings.
 =item Coercions would be nice as well
 
 =item Build some better tests. Right now we don't test BUILD at all (hence it's undocumented), the special blocks stuff hasn't been tested properly and init_arg is broken (also: undocumented).
+
+=back
