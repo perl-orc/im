@@ -151,12 +151,12 @@ sub reify {
   set_meta($pa->{'package'}, $new);
 	# Potential optimisation: can we just precompile the class if it's a plain invocation with no extra roles? Watch out for compilation at reify time
   foreach my $k (keys %to_merge) {
-		if($to_merge{$k} && !ref($to_merge{$k})) {
+		if($to_merge{$k} && !ref($to_merge{$k}) && $to_merge{$k}->can($k)) {
 			$pa->add_method($k, $to_merge{$k}->can($k));
 		} elsif (ref($to_merge{$k}) eq 'CODE') {
 			$pa->add_method($k, $to_merge{$k});
 		} else {
-			croak("Don't know what to do with $k");
+			croak("Don't know what to do with '$k'. This probably means you've forgotten to define or import a subroutine called '$k'.");
 		}
   }
   my $blessed = $pa->bless({});
